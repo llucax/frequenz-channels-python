@@ -278,7 +278,7 @@ class SelectError(Error):
     This exception is raised when a `select()` iteration fails.  It is raised as
     a single exception when one receiver fails during normal operation (while calling
     `ready()` for example).  It is raised as a group exception
-    ([`BaseExceptionGroup`][]) when a `select` loop is cleaning up after it's done.
+    ([BaseExceptionGroup][]) when a `select` loop is cleaning up after it's done.
     """
 
 

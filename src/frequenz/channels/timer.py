@@ -428,11 +428,11 @@ class Timer(Receiver[timedelta]):
     async iterator interface) will also start the timer at that point.
 
     Timers need to be created in a context where
-    a [`asyncio`][] loop is already running. If no
+    a [asyncio][] loop is already running. If no
     [`loop`][frequenz.channels.timer.Timer.loop] is specified, the current running loop
     is used.
 
-    Timers can be stopped by calling [`stop()`][frequenz.channels.timer.Timer.stop].
+    Timers can be stopped by calling [`stop()`][.stop].
     A stopped timer will raise
     a [`ReceiverStoppedError`][frequenz.channels.ReceiverStoppedError] or stop the async
     iteration as usual.
@@ -448,10 +448,10 @@ class Timer(Receiver[timedelta]):
     This drift will likely never be `0`, because if there is a task that is
     running when it should trigger, the timer will be delayed. In this case the
     drift will be positive. A negative drift should be technically impossible,
-    as the timer uses [`asyncio`][]s loop monotonic clock.
+    as the timer uses [asyncio][]s loop monotonic clock.
 
     Warning:
-        Even when the [`asyncio`][] loop's monotonic clock is a [`float`][], timers use
+        Even when the [asyncio][] loop's monotonic clock is a [`float`][], timers use
         `int`s to represent time internally. The internal time is tracked in
         microseconds, so the timer resolution is 1 microsecond
         ([`interval`][frequenz.channels.timer.Timer.interval] must be at least
