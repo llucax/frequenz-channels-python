@@ -110,6 +110,12 @@ plugins:
         python_xref:
           options:
             paths: ["src"]
+            # This only disables early checking of cross-references, which is
+            # problematic when using the syntax [symbol][], but the references
+            # are still checked at a later stage (with harder to read errors).
+            # See:
+            # https://github.com/analog-garage/mkdocstrings-python-xref/issues/16
+            check_crossrefs: false
             docstring_section_style: spacy
             inherited_members: true
             merge_init_into_class: false
