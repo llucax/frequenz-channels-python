@@ -147,6 +147,7 @@ disable = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "src"]
+addopts = ["-Werror"]
 asyncio_mode = "auto"
 required_plugins = ["pytest-asyncio", "pytest-mock"]
 markers = [
