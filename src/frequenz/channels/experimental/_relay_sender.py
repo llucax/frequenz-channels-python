@@ -29,14 +29,12 @@ class RelaySender(typing.Generic[SenderMessageT_contra], Sender[SenderMessageT_c
         channel1: Broadcast[int] = Broadcast(name="channel1")
         channel2: Broadcast[int] = Broadcast(name="channel2")
 
-        receiver1 = channel1.new_receiver()
-        receiver2 = channel2.new_receiver()
+        with channel1.new_receiver() as receiver1, channel2.new_receiver() as receiver2:
+            tee_sender = RelaySender(channel1.new_sender(), channel2.new_sender())
 
-        tee_sender = RelaySender(channel1.new_sender(), channel2.new_sender())
-
-        await tee_sender.send(5)
-        assert await receiver1.receive() == 5
-        assert await receiver2.receive() == 5
+            await tee_sender.send(5)
+            assert await receiver1.receive() == 5
+            assert await receiver2.receive() == 5
         ```
     """
 

@@ -46,16 +46,10 @@ class Event(Receiver[None]):
         ```python
         import asyncio
 
-        from frequenz.channels import Anycast, select, selected_from
+        from frequenz.channels import Anycast, Receiver, Sender, select, selected_from
         from frequenz.channels.event import Event
 
-        channel: Anycast[int] = Anycast(name="channel")
-        receiver = channel.new_receiver()
-        sender = channel.new_sender()
-        stop_event = Event(name="stop")
-
-
-        async def do_work() -> None:
+        async def do_work(receiver: Receiver[int], stop_event: Event) -> None:
             async for selected in select(receiver, stop_event):
                 if selected_from(selected, receiver):
                     print(selected.message)
@@ -65,7 +59,7 @@ class Event(Receiver[None]):
                     break
 
 
-        async def send_stuff() -> None:
+        async def send_stuff(sender: Sender[int], stop_event: Event) -> None:
             for i in range(10):
                 if stop_event.is_stopped:
                     break
@@ -74,11 +68,15 @@ class Event(Receiver[None]):
 
 
         async def main() -> None:
-            async with asyncio.TaskGroup() as task_group:
-                task_group.create_task(do_work(), name="do_work")
-                task_group.create_task(send_stuff(), name="send_stuff")
-                await asyncio.sleep(5.5)
-                stop_event.set()
+            channel: Anycast[int] = Anycast(name="channel")
+            sender = channel.new_sender()
+
+            with channel.new_receiver() as receiver, Event(name="stop") as stop_event:
+                async with asyncio.TaskGroup() as task_group:
+                    task_group.create_task(do_work(receiver, stop_event), name="do_work")
+                    task_group.create_task(send_stuff(sender, stop_event), name="send_stuff")
+                    await asyncio.sleep(5.5)
+                    stop_event.set()
 
 
         asyncio.run(main())

@@ -26,7 +26,7 @@ class Pipe(typing.Generic[ChannelMessageT]):
     Example:
         ```python
         import asyncio
-        from contextlib import closing, aclosing, AsyncExitStack
+        from contextlib import aclosing, AsyncExitStack
 
         from frequenz.channels import Broadcast, Pipe, Receiver
 
@@ -37,7 +37,7 @@ class Pipe(typing.Generic[ChannelMessageT]):
                 source_channel = await stack.enter_async_context(
                     aclosing(Broadcast[int](name="source channel"))
                 )
-                source_receiver = stack.enter_context(closing(source_channel.new_receiver()))
+                source_receiver = stack.enter_context(source_channel.new_receiver())
 
                 forwarding_channel = await stack.enter_async_context(
                     aclosing(Broadcast[int](name="forwarding channel"))
@@ -46,7 +46,7 @@ class Pipe(typing.Generic[ChannelMessageT]):
                     Pipe(source_receiver, forwarding_channel.new_sender())
                 )
 
-                receiver = stack.enter_context(closing(forwarding_channel.new_receiver()))
+                receiver = stack.enter_context(forwarding_channel.new_receiver())
 
                 source_sender = source_channel.new_sender()
                 await source_sender.send(10)

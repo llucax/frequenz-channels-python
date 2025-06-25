@@ -48,21 +48,20 @@ Tip:
     from frequenz.channels import Anycast, ChannelClosedError, ReceiverStoppedError
 
     channel = Anycast[int](name="test-channel")
-    receiver = channel.new_receiver()
-
-    async for message in receiver:
-        print(message)
-    try:
-        await receiver.receive()
-    except ReceiverStoppedError as error:
-        print("The receiver was stopped")
-        match error.__cause__:
-            case None:
-                print("The receiver was stopped without a known reason")
-            case ChannelClosedError() as closed_error:
-                print(f"The channel was closed with error: {closed_error}")
-            case _ as unknown_error:
-                print(f"The receiver was stopped due to an unknown error: {unknown_error}")
+    with channel.new_receiver() as receiver:
+        async for message in receiver:
+            print(message)
+        try:
+            await receiver.receive()
+        except ReceiverStoppedError as error:
+            print("The receiver was stopped")
+            match error.__cause__:
+                case None:
+                    print("The receiver was stopped without a known reason")
+                case ChannelClosedError() as closed_error:
+                    print(f"The channel was closed with error: {closed_error}")
+                case _ as unknown_error:
+                    print(f"The receiver was stopped due to an unknown error: {unknown_error}")
     ```
 """
 

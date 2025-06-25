@@ -125,13 +125,37 @@ except ReceiverError as error:
 
 # Closing receivers
 
-When a particular stream of data is no-longer required, it is a good practice to close
-the receiver to free up resources. This is especially important in applications that are
-repeatedly creating new receivers.  The
-[`Receiver.close()`][frequenz.channels.Receiver.close] method can be used for this
-purpose.
+When a particular stream of data is no-longer required, you must close the receiver to
+free up resources. This is especially important in applications that are repeatedly
+creating new receivers.  The [`Receiver.close()`][frequenz.channels.Receiver.close]
+method can be used for this purpose:
 
-After `close()` is called, we can still receive messages that are in the receiver's
+```python show_lines="5:"
+from frequenz.channels import Anycast
+
+channel = Anycast[int](name="test-channel")
+
+receiver = channel.new_receiver()
+print(receiver.receive())
+receiver.close()
+```
+
+But receivers are also context managers, so it is strongly recommended to use them in
+a `with` statement to ensure proper cleanup even in case of exceptions:
+
+```python show_lines="5:"
+from frequenz.channels import Anycast
+
+channel = Anycast[int](name="test-channel")
+
+with channel.new_receiver() as receiver:
+    async for message in receiver:
+        if message is None:
+            raise ValueError("Received None, which is not allowed")
+        print(message)
+```
+
+After a receiver is closed, you can still receive messages that are in the receiver's
 buffer, but as soon as the receiver's buffer has been drained, trying to receive further
 messages from a *closed* receiver will raise a
 [`ReceiverStoppedError`][frequenz.channels.ReceiverStoppedError].
@@ -168,6 +192,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any, Generic, Self, TypeGuard, TypeVar, overload
 
 from typing_extensions import override
@@ -182,7 +207,11 @@ FilteredMessageT_co = TypeVar("FilteredMessageT_co", covariant=True)
 """Type variable for the filtered message type."""
 
 
-class Receiver(AsyncIterator[ReceiverMessageT_co], ABC):
+class Receiver(
+    AbstractContextManager["Receiver[ReceiverMessageT_co]"],
+    AsyncIterator[ReceiverMessageT_co],
+    ABC,
+):
     """An endpoint to receive messages."""
 
     # We need the noqa here because ReceiverError can be raised by ready() and consume()
@@ -203,6 +232,36 @@ class Receiver(AsyncIterator[ReceiverMessageT_co], ABC):
             return self.consume()
         except ReceiverStoppedError as exc:
             raise StopAsyncIteration() from exc
+
+    @override
+    def __enter__(self) -> Self:
+        """Enter the runtime context related to this receiver.
+
+        Returns:
+            This receiver.
+        """
+        return self
+
+    @override
+    def __exit__(  # pylint: disable=useless-return
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: Any,
+    ) -> bool | None:
+        """Exit the runtime context related to this receiver, closing it.
+
+        Args:
+            exc_type: The exception type, if any.
+            exc_value: The exception value, if any.
+            traceback: The traceback, if any.
+
+        Returns:
+            Whether to suppress the exception. If `None`, the exception will be
+                propagated. If `True`, the exception will be suppressed.
+        """
+        self.close()
+        return None
 
     @abstractmethod
     async def ready(self) -> bool:

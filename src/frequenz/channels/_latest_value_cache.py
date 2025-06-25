@@ -20,15 +20,17 @@ from frequenz.channels import Broadcast, LatestValueCache
 
 channel = Broadcast[int](name="lvc_test")
 
-cache = LatestValueCache(channel.new_receiver())
-sender = channel.new_sender()
+with channel.new_receiver() as receiver:
+    cache = LatestValueCache(receiver)
+    sender = channel.new_sender()
 
-assert not cache.has_value()
+    assert not cache.has_value()
 
-await sender.send(5)
+    await sender.send(5)
 
-assert cache.has_value()
-assert cache.get() == 5
+    assert cache.has_value()
+    assert cache.get() == 5
+    await cache.stop()
 ```
 """
 

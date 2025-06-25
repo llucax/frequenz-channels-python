@@ -34,19 +34,19 @@ class WithPrevious(Generic[ChannelMessageT]):
         from frequenz.channels.experimental import WithPrevious
 
         channel = Broadcast[int](name="example")
-        receiver = channel.new_receiver().filter(WithPrevious(lambda old, new: old != new))
-        sender = channel.new_sender()
+        with channel.new_receiver().filter(WithPrevious(lambda old, new: old != new)) as receiver:
+            sender = channel.new_sender()
 
-        # This message will be received as it is the first message.
-        await sender.send(1)
-        assert await receiver.receive() == 1
+            # This message will be received as it is the first message.
+            await sender.send(1)
+            assert await receiver.receive() == 1
 
-        # This message will be skipped as it equals to the previous one.
-        await sender.send(1)
+            # This message will be skipped as it equals to the previous one.
+            await sender.send(1)
 
-        # This message will be received as it is a different from the previous one.
-        await sender.send(0)
-        assert await receiver.receive() == 0
+            # This message will be received as it is a different from the previous one.
+            await sender.send(0)
+            assert await receiver.receive() == 0
         ```
 
     Example: Receiving only messages if they are bigger than the previous one.
@@ -55,31 +55,31 @@ class WithPrevious(Generic[ChannelMessageT]):
         from frequenz.channels.experimental import WithPrevious
 
         channel = Broadcast[int](name="example")
-        receiver = channel.new_receiver().filter(
+        with channel.new_receiver().filter(
             WithPrevious(lambda old, new: new > old, first_is_true=False)
-        )
-        sender = channel.new_sender()
+        ) as receiver:
+            sender = channel.new_sender()
 
-        # This message will skipped as first_is_true is False.
-        await sender.send(1)
+            # This message will skipped as first_is_true is False.
+            await sender.send(1)
 
-        # This message will be received as it is bigger than the previous one (1).
-        await sender.send(2)
-        assert await receiver.receive() == 2
+            # This message will be received as it is bigger than the previous one (1).
+            await sender.send(2)
+            assert await receiver.receive() == 2
 
-        # This message will be skipped as it is smaller than the previous one (1).
-        await sender.send(0)
+            # This message will be skipped as it is smaller than the previous one (1).
+            await sender.send(0)
 
-        # This message will be skipped as it is not bigger than the previous one (0).
-        await sender.send(0)
+            # This message will be skipped as it is not bigger than the previous one (0).
+            await sender.send(0)
 
-        # This message will be received as it is bigger than the previous one (0).
-        await sender.send(1)
-        assert await receiver.receive() == 1
+            # This message will be received as it is bigger than the previous one (0).
+            await sender.send(1)
+            assert await receiver.receive() == 1
 
-        # This message will be received as it is bigger than the previous one (1).
-        await sender.send(2)
-        assert await receiver.receive() == 2
+            # This message will be received as it is bigger than the previous one (1).
+            await sender.send(2)
+            assert await receiver.receive() == 2
         ```
     """
 

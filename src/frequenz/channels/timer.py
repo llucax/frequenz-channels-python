@@ -25,8 +25,9 @@ Example: Periodic Timer Example
 
 
     async def main() -> None:
-        async for drift in Timer(timedelta(seconds=1.0), TriggerAllMissed()):
-            print(f"The timer has triggered at {datetime.now()} with a drift of {drift}")
+        with Timer(timedelta(seconds=1.0), TriggerAllMissed()) as timer:
+            async for drift in timer:
+                print(f"The timer has triggered at {datetime.now()} with a drift of {drift}")
 
 
     asyncio.run(main())
@@ -52,18 +53,18 @@ Example: Timeout Example
 
     async def main() -> None:
         channel = Anycast[int](name="data-channel")
-        data_receiver = channel.new_receiver()
-
-        timer = Timer(timedelta(seconds=1.0), SkipMissedAndDrift())
-
-        async for selected in select(data_receiver, timer):
-            if selected_from(selected, data_receiver):
-                print(f"Received data: {selected.message}")
-                timer.reset()
-            elif selected_from(selected, timer):
-                drift = selected.message
-                print(f"No data received for {timer.interval + drift} seconds, giving up")
-                break
+        with (
+            channel.new_receiver() as data_receiver,
+            Timer(timedelta(seconds=1.0), SkipMissedAndDrift()) as timer
+        ):
+            async for selected in select(data_receiver, timer):
+                if selected_from(selected, data_receiver):
+                    print(f"Received data: {selected.message}")
+                    timer.reset()
+                elif selected_from(selected, timer):
+                    drift = selected.message
+                    print(f"No data received for {timer.interval + drift} seconds, giving up")
+                    break
 
 
     asyncio.run(main())

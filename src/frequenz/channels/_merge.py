@@ -17,8 +17,9 @@ channel2: Anycast[int] = Anycast(name="channel2")
 receiver1 = channel1.new_receiver()
 receiver2 = channel2.new_receiver()
 
-async for message in merge(receiver1, receiver2):
-    print(message)
+with merge(receiver1, receiver2) as merged:
+    async for message in merged:
+        print(message)
 ```
 
 If the first message comes from `channel2` and the second message from `channel1`, the
@@ -52,6 +53,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 from collections import deque
+from contextlib import ExitStack
 from typing import Any
 
 from typing_extensions import override
@@ -76,8 +78,9 @@ def merge(*receivers: Receiver[ReceiverMessageT_co]) -> Merger[ReceiverMessageT_
         receiver1 = channel1.new_receiver()
         receiver2 = channel2.new_receiver()
 
-        async for message in merge(receiver1, receiver2):
-            print(f"received {message}")
+        with merge(receiver1, receiver2) as merged:
+            async for message in merged:
+                print(f"received {message}")
         ```
 
     Args:

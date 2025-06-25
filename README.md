@@ -73,11 +73,10 @@ from frequenz.channels import Anycast
 async def main() -> None:
     hello_channel = Anycast[str](name="hello-world-channel")
     sender = hello_channel.new_sender()
-    receiver = hello_channel.new_receiver()
-
-    await sender.send("Hello World!")
-    message = await receiver.receive()
-    print(message)
+    with hello_channel.new_receiver() as receiver:
+        await sender.send("Hello World!")
+        message = await receiver.receive()
+        print(message)
 
 
 asyncio.run(main())
@@ -94,6 +93,7 @@ library:
 
 ```python
 import asyncio
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum, auto
@@ -133,25 +133,25 @@ async def send(
 ) -> None:
     """Send a counter value every second, until a stop command is received."""
     print(f"{sender}: Starting")
-    timer = Timer(timedelta(seconds=1.0), TriggerAllMissed())
-    counter = 0
-    async for selected in select(timer, control_command):
-        if selected_from(selected, timer):
-            print(f"{sender}: Sending {counter}")
-            await sender.send(f"{sender}: {counter}")
-            counter += 1
-        elif selected_from(selected, control_command):
-            print(f"{sender}: Received command: {selected.message.name}")
-            match selected.message:
-                case Command.STOP_SENDER:
-                    print(f"{sender}: Stopping")
-                    break
-                case Command.PING:
-                    print(f"{sender}: Ping received, reply with pong")
-                    await control_reply.send(Reply(ReplyCommand.PONG, str(sender)))
-                case _ as unknown:
-                    assert_never(unknown)
-    print(f"{sender}: Finished")
+    with Timer(timedelta(seconds=1.0), TriggerAllMissed()) as timer:
+        counter = 0
+        async for selected in select(timer, control_command):
+            if selected_from(selected, timer):
+                print(f"{sender}: Sending {counter}")
+                await sender.send(f"{sender}: {counter}")
+                counter += 1
+            elif selected_from(selected, control_command):
+                print(f"{sender}: Received command: {selected.message.name}")
+                match selected.message:
+                    case Command.STOP_SENDER:
+                        print(f"{sender}: Stopping")
+                        break
+                    case Command.PING:
+                        print(f"{sender}: Ping received, reply with pong")
+                        await control_reply.send(Reply(ReplyCommand.PONG, str(sender)))
+                    case _ as unknown:
+                        assert_never(unknown)
+        print(f"{sender}: Finished")
 
 
 async def receive(
@@ -161,33 +161,33 @@ async def receive(
 ) -> None:
     """Receive data from multiple channels, until no more data is received for 2 seconds."""
     print("receive: Starting")
-    timer = Timer(timedelta(seconds=2.0), SkipMissedAndDrift())
-    print(f"{timer=}")
-    merged = merge(*receivers)
-    async for selected in select(merged, timer, control_command):
-        if selected_from(selected, merged):
-            message = selected.message
-            print(f"receive: Received {message=}")
-            timer.reset()
-            print(f"{timer=}")
-        elif selected_from(selected, control_command):
-            print(f"receive: received command: {selected.message.name}")
-            match selected.message:
-                case Command.PING:
-                    print("receive: Ping received, reply with pong")
-                    await control_reply.send(Reply(ReplyCommand.PONG, "receive"))
-                case Command.STOP_SENDER:
-                    pass  # Ignore
-                case _ as unknown:
-                    assert_never(unknown)
-        elif selected_from(selected, timer):
-            drift = selected.message
-            print(
-                f"receive: No data received for {timer.interval + drift} seconds, "
-                "giving up"
-            )
-            break
-    print("receive: Finished")
+    with Timer(timedelta(seconds=2.0), SkipMissedAndDrift()) as timer:
+        print(f"{timer=}")
+        merged = merge(*receivers)
+        async for selected in select(merged, timer, control_command):
+            if selected_from(selected, merged):
+                message = selected.message
+                print(f"receive: Received {message=}")
+                timer.reset()
+                print(f"{timer=}")
+            elif selected_from(selected, control_command):
+                print(f"receive: received command: {selected.message.name}")
+                match selected.message:
+                    case Command.PING:
+                        print("receive: Ping received, reply with pong")
+                        await control_reply.send(Reply(ReplyCommand.PONG, "receive"))
+                    case Command.STOP_SENDER:
+                        pass  # Ignore
+                    case _ as unknown:
+                        assert_never(unknown)
+            elif selected_from(selected, timer):
+                drift = selected.message
+                print(
+                    f"receive: No data received for {timer.interval + drift} seconds, "
+                    "giving up"
+                )
+                break
+        print("receive: Finished")
 
 
 async def main() -> None:
@@ -196,46 +196,50 @@ async def main() -> None:
     command_channel = Broadcast[Command](name="control-channel")  # (1)!
     reply_channel = Anycast[Reply](name="reply-channel")
 
-    async with asyncio.TaskGroup() as tasks:
-        tasks.create_task(
-            send(
-                data_channel_1.new_sender(),
-                command_channel.new_receiver(),
-                reply_channel.new_sender(),
-            ),
-            name="send-channel-1",
-        )
-        tasks.create_task(
-            send(
-                data_channel_2.new_sender(),
-                command_channel.new_receiver(),
-                reply_channel.new_sender(),
-            ),
-            name="send-channel-2",
-        )
-        tasks.create_task(
-            receive(
-                [data_channel_1.new_receiver(), data_channel_2.new_receiver()],
-                command_channel.new_receiver(),
-                reply_channel.new_sender(),
-            ),
-            name="receive",
-        )
+    with ExitStack() as stack:
+        async with asyncio.TaskGroup() as tasks:
+            tasks.create_task(
+                send(
+                    data_channel_1.new_sender(),
+                    stack.enter_context(command_channel.new_receiver()),
+                    reply_channel.new_sender(),
+                ),
+                name="send-channel-1",
+            )
+            tasks.create_task(
+                send(
+                    data_channel_2.new_sender(),
+                    stack.enter_context(command_channel.new_receiver()),
+                    reply_channel.new_sender(),
+                ),
+                name="send-channel-2",
+            )
+            tasks.create_task(
+                receive(
+                    [
+                        stack.enter_context(data_channel_1.new_receiver()),
+                        stack.enter_context(data_channel_2.new_receiver()),
+                    ],
+                    stack.enter_context(command_channel.new_receiver()),
+                    reply_channel.new_sender(),
+                ),
+                name="receive",
+            )
 
-        control_sender = command_channel.new_sender()
-        reply_receiver = reply_channel.new_receiver()
+            control_sender = command_channel.new_sender()
+            reply_receiver = stack.enter_context(reply_channel.new_receiver())
 
-        # Send a ping command to all tasks and wait for the replies
-        await control_sender.send(Command.PING)
-        print(f"main: {await reply_receiver.receive()}")
-        print(f"main: {await reply_receiver.receive()}")
-        print(f"main: {await reply_receiver.receive()}")
+            # Send a ping command to all tasks and wait for the replies
+            await control_sender.send(Command.PING)
+            print(f"main: {await reply_receiver.receive()}")
+            print(f"main: {await reply_receiver.receive()}")
+            print(f"main: {await reply_receiver.receive()}")
 
-        await asyncio.sleep(5.0)
+            await asyncio.sleep(5.0)
 
-        # Stop senders, after 2 seconds not receiving any data,
-        # the receiver will stop too
-        await control_sender.send(Command.STOP_SENDER)
+            # Stop senders, after 2 seconds not receiving any data,
+            # the receiver will stop too
+            await control_sender.send(Command.STOP_SENDER)
 
 
 asyncio.run(main())

@@ -109,16 +109,15 @@ class Anycast(Generic[ChannelMessageT]):
 
         async def main() -> None:
             channel = Anycast[int](name="numbers")
-
             sender = channel.new_sender()
-            receiver = channel.new_receiver()
 
-            async with asyncio.TaskGroup() as task_group:
-                task_group.create_task(send(sender))
-                for _ in range(3):
-                    message = await receiver.receive()
-                    print(f"received {message}")
-                    await asyncio.sleep(0.1)  # sleep (or work) with the data
+            with channel.new_receiver() as receiver:
+                async with asyncio.TaskGroup() as task_group:
+                    task_group.create_task(send(sender))
+                    for _ in range(3):
+                        message = await receiver.receive()
+                        print(f"received {message}")
+                        await asyncio.sleep(0.1)  # sleep (or work) with the data
 
 
         asyncio.run(main())
@@ -164,11 +163,12 @@ class Anycast(Generic[ChannelMessageT]):
         async def main() -> None:
             acast = Anycast[int](name="numbers", limit=2)
 
-            async with asyncio.TaskGroup() as task_group:
-                task_group.create_task(send("sender_1", acast.new_sender(), 10, 13))
-                task_group.create_task(send("sender_2", acast.new_sender(), 20, 22))
-                task_group.create_task(recv("receiver_1", acast.new_receiver()))
-                task_group.create_task(recv("receiver_2", acast.new_receiver()))
+            with acast.new_receiver() as receiver1, acast.new_receiver() as receiver2:
+                async with asyncio.TaskGroup() as task_group:
+                    task_group.create_task(send("sender_1", acast.new_sender(), 10, 13))
+                    task_group.create_task(send("sender_2", acast.new_sender(), 20, 22))
+                    task_group.create_task(recv("receiver_1", receiver1))
+                    task_group.create_task(recv("receiver_2", receiver2))
 
 
         asyncio.run(main())
