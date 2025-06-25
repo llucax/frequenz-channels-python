@@ -203,8 +203,9 @@ class Merger(Receiver[ReceiverMessageT_co]):
             if not task.done() and task.get_loop().is_running():
                 task.cancel()
         self._pending = set()
-        for recv in self._receivers.values():
-            recv.close()
+        with ExitStack() as stack:
+            for recv in self._receivers.values():
+                stack.push(recv)
 
     def __str__(self) -> str:
         """Return a string representation of this receiver."""
