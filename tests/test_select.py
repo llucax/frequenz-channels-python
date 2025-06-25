@@ -47,7 +47,7 @@ class TestSelected:
         assert selected_from(selected, recv)
         with pytest.raises(
             ReceiverStoppedError,
-            match=r"Receiver <MagicMock spec='_GenericAlias' id='\d+'> was stopped",
+            match=r"Receiver <MagicMock spec='.*' id='\d+'> was stopped",
         ):
             _ = selected.message
         assert selected.exception is exception
