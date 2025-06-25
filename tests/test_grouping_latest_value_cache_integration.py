@@ -4,7 +4,7 @@
 """Tests for the LatestValueCache implementation."""
 
 import asyncio
-from contextlib import ExitStack
+from contextlib import AsyncExitStack
 
 import pytest
 
@@ -14,14 +14,15 @@ from frequenz.channels.experimental import GroupingLatestValueCache
 
 @pytest.mark.integration
 async def test_latest_value_cache_key(  # pylint: disable=too-many-statements
-    stack: ExitStack,
+    astack: AsyncExitStack,
 ) -> None:
     """Ensure LatestValueCache works with keys."""
     channel = Broadcast[tuple[int, str]](name="lvc_test")
 
     cache: GroupingLatestValueCache[int, tuple[int, str]] = GroupingLatestValueCache(
-        stack.enter_context(channel.new_receiver()), key=lambda x: x[0]
+        astack.enter_context(channel.new_receiver()), key=lambda x: x[0]
     )
+    astack.push_async_callback(cache.stop)
     sender = channel.new_sender()
 
     assert 5 not in cache
@@ -98,20 +99,20 @@ async def test_latest_value_cache_key(  # pylint: disable=too-many-statements
     assert not cache
     assert cache.keys() == set()
 
-    await cache.stop()
-
 
 @pytest.mark.integration
-async def test_equality(stack: ExitStack) -> None:
+async def test_equality(astack: AsyncExitStack) -> None:
     """Test that two caches with the same content are equal."""
     channel = Broadcast[tuple[int, str]](name="lvc_test")
 
     cache1: GroupingLatestValueCache[int, tuple[int, str]] = GroupingLatestValueCache(
-        stack.enter_context(channel.new_receiver()), key=lambda x: x[0]
+        astack.enter_context(channel.new_receiver()), key=lambda x: x[0]
     )
+    astack.push_async_callback(cache1.stop)
     cache2: GroupingLatestValueCache[int, tuple[int, str]] = GroupingLatestValueCache(
-        stack.enter_context(channel.new_receiver()), key=lambda x: x[0]
+        astack.enter_context(channel.new_receiver()), key=lambda x: x[0]
     )
+    astack.push_async_callback(cache2.stop)
 
     sender = channel.new_sender()
     await sender.send((1, "one"))
@@ -122,6 +123,3 @@ async def test_equality(stack: ExitStack) -> None:
 
     del cache1[1]
     assert cache1 != cache2
-
-    await cache1.stop()
-    await cache2.stop()
