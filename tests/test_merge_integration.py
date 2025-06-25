@@ -4,6 +4,7 @@
 """Integration tests for the merge implementation."""
 
 import asyncio
+from contextlib import ExitStack
 
 import pytest
 
@@ -13,7 +14,7 @@ from frequenz.channels._receiver import ReceiverStoppedError
 
 
 @pytest.mark.integration
-async def test_merge() -> None:
+async def test_merge(stack: ExitStack) -> None:
     """Ensure merge() receives messages in order."""
     chan1 = Anycast[int](name="chan1")
     chan2 = Anycast[int](name="chan2")
@@ -29,7 +30,12 @@ async def test_merge() -> None:
     senders = asyncio.create_task(send(chan1.new_sender(), chan2.new_sender()))
 
     results: list[int] = []
-    async for item in merge(chan1.new_receiver(), chan2.new_receiver()):
+    async for item in stack.enter_context(
+        merge(
+            chan1.new_receiver(),
+            chan2.new_receiver(),
+        )
+    ):
         results.append(item)
     await senders
     for ctr in range(5):
@@ -43,7 +49,7 @@ async def test_merge() -> None:
     assert results[-1] == 1000
 
 
-async def test_merge_close_receiver() -> None:
+async def test_merge_close_receiver(stack: ExitStack) -> None:
     """Ensure merge() closes when a receiver is closed."""
     chan1 = Broadcast[int](name="chan1")
     chan2 = Broadcast[int](name="chan2")
@@ -57,10 +63,10 @@ async def test_merge_close_receiver() -> None:
 
     rx1 = chan1.new_receiver()
     rx2 = chan2.new_receiver()
-    closing_merge = merge(rx1, rx2)
-    prx1 = chan1.new_receiver()
-    prx2 = chan2.new_receiver()
-    completing_merge = merge(prx1, prx2)
+    closing_merge = stack.enter_context(merge(rx1, rx2))
+    prx1 = stack.enter_context(chan1.new_receiver())
+    prx2 = stack.enter_context(chan2.new_receiver())
+    completing_merge = stack.enter_context(merge(prx1, prx2))
 
     senders = asyncio.create_task(send(chan1.new_sender(), chan2.new_sender()))
 

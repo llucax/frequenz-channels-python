@@ -5,6 +5,7 @@
 
 
 import asyncio
+from contextlib import ExitStack
 
 import pytest
 
@@ -18,7 +19,7 @@ from frequenz.channels import (
 )
 
 
-async def test_anycast() -> None:
+async def test_anycast(stack: ExitStack) -> None:  # pylint: disable=too-many-locals
     """Ensure sent messages are received by one receiver."""
     acast: Anycast[int] = Anycast(name="test")
 
@@ -51,11 +52,13 @@ async def test_anycast() -> None:
 
     receivers = []
     for ctr in range(num_receivers):
-        receivers.append(update_tracker_on_receive(ctr, acast.new_receiver()))
+        receivers.append(
+            update_tracker_on_receive(ctr, stack.enter_context(acast.new_receiver()))
+        )
 
     # get one more sender and receiver to test channel operations after the
     # channel is closed.
-    after_close_receiver = acast.new_receiver()
+    after_close_receiver = stack.enter_context(acast.new_receiver())
     after_close_sender = acast.new_sender()
 
     receivers_runs = asyncio.gather(*receivers)
@@ -83,11 +86,11 @@ async def test_anycast() -> None:
     assert actual_sum == expected_sum
 
 
-async def test_anycast_after_close() -> None:
+async def test_anycast_after_close(stack: ExitStack) -> None:
     """Ensure closed channels can't get new messages."""
     acast: Anycast[int] = Anycast(name="test")
 
-    receiver = acast.new_receiver()
+    receiver = stack.enter_context(acast.new_receiver())
     sender = acast.new_sender()
 
     await sender.send(2)
@@ -102,13 +105,13 @@ async def test_anycast_after_close() -> None:
         await receiver.receive()
 
 
-async def test_anycast_full() -> None:
+async def test_anycast_full(stack: ExitStack) -> None:
     """Ensure send calls to a full channel are blocked."""
     buffer_size = 10
     timeout = 0.2
     acast: Anycast[int] = Anycast(name="test", limit=buffer_size)
 
-    receiver = acast.new_receiver()
+    receiver = stack.enter_context(acast.new_receiver())
     sender = acast.new_sender()
 
     timeout_at = 0
@@ -147,12 +150,12 @@ async def test_anycast_full() -> None:
         assert False
 
 
-async def test_anycast_none_messages() -> None:
+async def test_anycast_none_messages(stack: ExitStack) -> None:
     """Ensure None messages can be sent and received."""
     acast: Anycast[int | None] = Anycast(name="test")
 
     sender = acast.new_sender()
-    receiver = acast.new_receiver()
+    receiver = stack.enter_context(acast.new_receiver())
 
     await sender.send(5)
     assert await receiver.receive() == 5
@@ -164,12 +167,12 @@ async def test_anycast_none_messages() -> None:
     assert await receiver.receive() == 10
 
 
-async def test_anycast_async_iterator() -> None:
+async def test_anycast_async_iterator(stack: ExitStack) -> None:
     """Check that the anycast receiver works as an async iterator."""
     acast: Anycast[str] = Anycast(name="test")
 
     sender = acast.new_sender()
-    receiver = acast.new_receiver()
+    receiver = stack.enter_context(acast.new_receiver())
 
     async def send_messages() -> None:
         for val in ["one", "two", "three", "four", "five"]:
@@ -187,13 +190,13 @@ async def test_anycast_async_iterator() -> None:
     await sender_task
 
 
-async def test_anycast_map() -> None:
+async def test_anycast_map(stack: ExitStack) -> None:
     """Ensure map runs on all incoming messages."""
     chan: Anycast[int] = Anycast(name="test")
     sender = chan.new_sender()
 
     # transform int receiver into bool receiver.
-    receiver: Receiver[bool] = chan.new_receiver().map(lambda num: num > 10)
+    receiver = stack.enter_context(chan.new_receiver().map(lambda num: num > 10))
 
     await sender.send(8)
     await sender.send(12)
@@ -202,13 +205,13 @@ async def test_anycast_map() -> None:
     assert (await receiver.receive()) is True
 
 
-async def test_anycast_filter() -> None:
+async def test_anycast_filter(stack: ExitStack) -> None:
     """Ensure filter keeps only the messages that pass the filter."""
     chan = Anycast[int](name="input-chan")
     sender = chan.new_sender()
 
     # filter out all numbers less than 10.
-    receiver: Receiver[int] = chan.new_receiver().filter(lambda num: num > 10)
+    receiver = stack.enter_context(chan.new_receiver().filter(lambda num: num > 10))
 
     await sender.send(8)
     await sender.send(12)
@@ -219,13 +222,13 @@ async def test_anycast_filter() -> None:
     assert (await receiver.receive()) == 15
 
 
-async def test_anycast_close_receiver() -> None:
+async def test_anycast_close_receiver(stack: ExitStack) -> None:
     """Ensure closing a receiver stops the receiver."""
     chan = Anycast[int](name="input-chan")
     sender = chan.new_sender()
 
-    receiver_1 = chan.new_receiver()
-    receiver_2 = chan.new_receiver()
+    receiver_1 = stack.enter_context(chan.new_receiver())
+    receiver_2 = stack.enter_context(chan.new_receiver())
 
     await sender.send(1)
 

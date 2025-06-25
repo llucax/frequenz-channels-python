@@ -26,15 +26,16 @@ async def receive_timeout(recv: Receiver[T], timeout: float = 0.1) -> T | type[T
         return Timeout
 
 
-async def test_pipe() -> None:
+async def test_pipe(stack: ExitStack) -> None:
     """Test pipe."""
     channel1: Broadcast[int] = Broadcast(name="channel1")
     channel2: Broadcast[int] = Broadcast(name="channel2")
 
     sender_chan1 = channel1.new_sender()
     sender_chan2 = channel2.new_sender()
-    receiver_chan1 = channel1.new_receiver()
-    receiver_chan2 = channel2.new_receiver()
+
+    receiver_chan1 = stack.enter_context(channel1.new_receiver())
+    receiver_chan2 = stack.enter_context(channel2.new_receiver())
 
     async with Pipe(channel2.new_receiver(), channel1.new_sender()):
         await sender_chan2.send(42)

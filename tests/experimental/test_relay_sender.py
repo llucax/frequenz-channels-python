@@ -3,11 +3,13 @@
 
 """Tests for the RelaySender class."""
 
+from contextlib import ExitStack
+
 from frequenz.channels import Broadcast
 from frequenz.channels.experimental import RelaySender
 
 
-async def test_tee_sender() -> None:
+async def test_tee_sender(stack: ExitStack) -> None:
     """Test tee sender."""
     channel1: Broadcast[int] = Broadcast(name="channel1")
     channel2: Broadcast[int] = Broadcast(name="channel2")
@@ -16,9 +18,10 @@ async def test_tee_sender() -> None:
     sender = RelaySender(
         channel1.new_sender(), channel2.new_sender(), channel3.new_sender()
     )
-    receiver1 = channel1.new_receiver()
-    receiver2 = channel2.new_receiver()
-    receiver3 = channel3.new_receiver()
+
+    receiver1 = stack.enter_context(channel1.new_receiver())
+    receiver2 = stack.enter_context(channel2.new_receiver())
+    receiver3 = stack.enter_context(channel3.new_receiver())
 
     await sender.send(42)
     assert (

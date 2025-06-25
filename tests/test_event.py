@@ -4,6 +4,7 @@
 """Tests for the select implementation."""
 
 import asyncio as _asyncio
+from contextlib import ExitStack
 
 import pytest as _pytest
 
@@ -11,9 +12,13 @@ from frequenz.channels import ReceiverStoppedError
 from frequenz.channels.event import Event
 
 
-async def test_event() -> None:
+async def test_event(stack: ExitStack) -> None:
     """Test the event implementation."""
+    # We can't do event = stack.enter_context(Event()) because there seems to be a bug
+    # somewhere that makes the type system think that then `event` is a `Receiver`
+    # instead of an `Event`, and we need to use the `Event` methods.
     event = Event()
+    stack.enter_context(event)
     assert not event.is_set
     assert not event.is_stopped
 
@@ -59,9 +64,10 @@ async def test_event() -> None:
     await event_task
 
 
-async def test_event_close_receiver() -> None:
+async def test_event_close_receiver(stack: ExitStack) -> None:
     """Ensure that closing an event stops the receiver."""
     event = Event()
+    stack.enter_context(event)
     assert not event.is_set
     assert not event.is_stopped
 

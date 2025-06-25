@@ -5,6 +5,7 @@
 
 
 import asyncio
+from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TypeGuard, assert_never
 
@@ -20,7 +21,7 @@ from frequenz.channels import (
 )
 
 
-async def test_broadcast() -> None:
+async def test_broadcast(stack: ExitStack) -> None:
     """Ensure sent messages are received by all receivers."""
     bcast: Broadcast[int] = Broadcast(name="meter_5")
 
@@ -50,7 +51,9 @@ async def test_broadcast() -> None:
 
     receivers = []
     for ctr in range(num_receivers):
-        receivers.append(update_tracker_on_receive(ctr, bcast.new_receiver()))
+        receivers.append(
+            update_tracker_on_receive(ctr, stack.enter_context(bcast.new_receiver()))
+        )
 
     receivers_runs = asyncio.gather(*receivers)
     senders = []
@@ -69,12 +72,12 @@ async def test_broadcast() -> None:
     assert actual_sum == expected_sum
 
 
-async def test_broadcast_none_messages() -> None:
+async def test_broadcast_none_messages(stack: ExitStack) -> None:
     """Ensure None messages can be sent and received."""
     bcast: Broadcast[int | None] = Broadcast(name="any_channel")
 
     sender = bcast.new_sender()
-    receiver = bcast.new_receiver()
+    receiver = stack.enter_context(bcast.new_receiver())
 
     await sender.send(5)
     assert await receiver.receive() == 5
@@ -86,11 +89,11 @@ async def test_broadcast_none_messages() -> None:
     assert await receiver.receive() == 10
 
 
-async def test_broadcast_after_close() -> None:
+async def test_broadcast_after_close(stack: ExitStack) -> None:
     """Ensure closed channels can't get new messages."""
     bcast: Broadcast[int] = Broadcast(name="meter_5")
 
-    receiver = bcast.new_receiver()
+    receiver = stack.enter_context(bcast.new_receiver())
     sender = bcast.new_sender()
 
     await bcast.aclose()
@@ -104,7 +107,7 @@ async def test_broadcast_after_close() -> None:
     assert excinfo.value.__cause__.channel is bcast
 
 
-async def test_broadcast_overflow() -> None:
+async def test_broadcast_overflow(stack: ExitStack) -> None:
     """Ensure messages sent to full broadcast receivers get dropped."""
     from frequenz.channels._broadcast import (  # pylint: disable=import-outside-toplevel
         _Receiver,
@@ -116,9 +119,11 @@ async def test_broadcast_overflow() -> None:
     small_recv_size = int(big_recv_size / 2)
     sender = bcast.new_sender()
 
-    big_receiver = bcast.new_receiver(name="named-recv", limit=big_recv_size)
+    big_receiver = stack.enter_context(
+        bcast.new_receiver(name="named-recv", limit=big_recv_size)
+    )
     assert isinstance(big_receiver, _Receiver)
-    small_receiver = bcast.new_receiver(limit=small_recv_size)
+    small_receiver = stack.enter_context(bcast.new_receiver(limit=small_recv_size))
     assert isinstance(small_receiver, _Receiver)
 
     async def drain_receivers() -> tuple[int, int]:
@@ -161,15 +166,15 @@ async def test_broadcast_overflow() -> None:
     )
 
 
-async def test_broadcast_resend_latest() -> None:
+async def test_broadcast_resend_latest(stack: ExitStack) -> None:
     """Check if new receivers get the latest message when resend_latest is set."""
     bcast: Broadcast[int] = Broadcast(name="new_recv_test", resend_latest=True)
 
     sender = bcast.new_sender()
-    old_recv = bcast.new_receiver()
+    old_recv = stack.enter_context(bcast.new_receiver())
     for val in range(0, 10):
         await sender.send(val)
-    new_recv = bcast.new_receiver()
+    new_recv = stack.enter_context(bcast.new_receiver())
 
     await sender.send(100)
 
@@ -178,15 +183,15 @@ async def test_broadcast_resend_latest() -> None:
     assert await new_recv.receive() == 100
 
 
-async def test_broadcast_no_resend_latest() -> None:
+async def test_broadcast_no_resend_latest(stack: ExitStack) -> None:
     """Ensure new receivers don't get the latest message when resend_latest isn't set."""
     bcast: Broadcast[int] = Broadcast(name="new_recv_test", resend_latest=False)
 
     sender = bcast.new_sender()
-    old_recv = bcast.new_receiver()
+    old_recv = stack.enter_context(bcast.new_receiver())
     for val in range(0, 10):
         await sender.send(val)
-    new_recv = bcast.new_receiver()
+    new_recv = stack.enter_context(bcast.new_receiver())
 
     await sender.send(100)
 
@@ -194,12 +199,12 @@ async def test_broadcast_no_resend_latest() -> None:
     assert await new_recv.receive() == 100
 
 
-async def test_broadcast_async_iterator() -> None:
+async def test_broadcast_async_iterator(stack: ExitStack) -> None:
     """Check that the broadcast receiver works as an async iterator."""
     bcast: Broadcast[int] = Broadcast(name="iter_test")
 
     sender = bcast.new_sender()
-    receiver = bcast.new_receiver()
+    receiver = stack.enter_context(bcast.new_receiver())
 
     async def send_messages() -> None:
         for val in range(0, 10):
@@ -217,13 +222,15 @@ async def test_broadcast_async_iterator() -> None:
     await sender_task
 
 
-async def test_broadcast_map() -> None:
+async def test_broadcast_map(stack: ExitStack) -> None:
     """Ensure map runs on all incoming messages."""
     chan = Broadcast[int](name="input-chan")
     sender = chan.new_sender()
 
     # transform int receiver into bool receiver.
-    receiver: Receiver[bool] = chan.new_receiver().map(lambda num: num > 10)
+    receiver: Receiver[bool] = stack.enter_context(
+        chan.new_receiver().map(lambda num: num > 10)
+    )
 
     await sender.send(8)
     await sender.send(12)
@@ -232,13 +239,13 @@ async def test_broadcast_map() -> None:
     assert (await receiver.receive()) is True
 
 
-async def test_broadcast_map_close_receiver() -> None:
+async def test_broadcast_map_close_receiver(stack: ExitStack) -> None:
     """Ensure closing a map stops the receiver."""
     chan = Broadcast[int](name="input-chan")
     sender = chan.new_sender()
 
-    receiver_1 = chan.new_receiver()
-    receiver_2 = chan.new_receiver()
+    receiver_1 = stack.enter_context(chan.new_receiver())
+    receiver_2 = stack.enter_context(chan.new_receiver())
     plus_100_rx = receiver_1.map(lambda num: num + 100)
 
     await sender.send(1)
@@ -268,13 +275,15 @@ async def test_broadcast_map_close_receiver() -> None:
         _ = await receiver_2.receive()
 
 
-async def test_broadcast_filter() -> None:
+async def test_broadcast_filter(stack: ExitStack) -> None:
     """Ensure filter keeps only the messages that pass the filter."""
     chan = Broadcast[int](name="input-chan")
     sender = chan.new_sender()
 
     # filter out all numbers less than 10.
-    receiver: Receiver[int] = chan.new_receiver().filter(lambda num: num > 10)
+    receiver: Receiver[int] = stack.enter_context(
+        chan.new_receiver().filter(lambda num: num > 10)
+    )
 
     await sender.send(8)
     await sender.send(12)
@@ -285,13 +294,13 @@ async def test_broadcast_filter() -> None:
     assert (await receiver.receive()) == 15
 
 
-async def test_broadcast_filter_close_receiver() -> None:
+async def test_broadcast_filter_close_receiver(stack: ExitStack) -> None:
     """Ensure closing a filter stops the receiver."""
     chan = Broadcast[int](name="input-chan")
     sender = chan.new_sender()
 
-    receiver_1 = chan.new_receiver()
-    receiver_2 = chan.new_receiver()
+    receiver_1 = stack.enter_context(chan.new_receiver())
+    receiver_2 = stack.enter_context(chan.new_receiver())
 
     gt_10_rx = receiver_1.filter(lambda num: num > 10)
 
@@ -322,7 +331,7 @@ async def test_broadcast_filter_close_receiver() -> None:
         _ = await receiver_2.receive()
 
 
-async def test_broadcast_filter_type_guard() -> None:
+async def test_broadcast_filter_type_guard(stack: ExitStack) -> None:
     """Ensure filter type guard works."""
     chan = Broadcast[int | str](name="input-chan")
     sender = chan.new_sender()
@@ -331,7 +340,7 @@ async def test_broadcast_filter_type_guard() -> None:
         return isinstance(num, int)
 
     # filter out objects that are not integers.
-    receiver = chan.new_receiver().filter(_is_int)
+    receiver = stack.enter_context(chan.new_receiver().filter(_is_int))
 
     await sender.send("hello")
     await sender.send(8)
@@ -347,13 +356,13 @@ async def test_broadcast_filter_type_guard() -> None:
     assert is_int
 
 
-async def test_broadcast_receiver_drop() -> None:
+async def test_broadcast_receiver_drop(stack: ExitStack) -> None:
     """Ensure deleted receivers get cleaned up."""
     chan = Broadcast[int](name="input-chan")
     sender = chan.new_sender()
 
-    receiver1 = chan.new_receiver()
-    receiver2 = chan.new_receiver()
+    receiver1 = stack.enter_context(chan.new_receiver())
+    receiver2 = stack.enter_context(chan.new_receiver())
 
     await sender.send(10)
 
@@ -371,7 +380,7 @@ async def test_broadcast_receiver_drop() -> None:
     # pylint: enable=protected-access
 
 
-async def test_type_variance() -> None:
+async def test_type_variance(stack: ExitStack) -> None:
     """Ensure that the type variance of Broadcast is working."""
 
     @dataclass
@@ -389,19 +398,19 @@ async def test_type_variance() -> None:
     chan = Broadcast[Actual](name="input-chan")
 
     sender: Sender[Narrower] = chan.new_sender()
-    receiver: Receiver[Broader] = chan.new_receiver()
+    receiver: Receiver[Broader] = stack.enter_context(chan.new_receiver())
 
     await sender.send(Narrower(10))
     assert (await receiver.receive()).value == 10
 
 
-async def test_broadcast_close_receiver() -> None:
+async def test_broadcast_close_receiver(stack: ExitStack) -> None:
     """Ensure closing a receiver stops the receiver."""
     chan = Broadcast[int](name="input-chan")
     sender = chan.new_sender()
 
-    receiver_1 = chan.new_receiver()
-    receiver_2 = chan.new_receiver()
+    receiver_1 = stack.enter_context(chan.new_receiver())
+    receiver_2 = stack.enter_context(chan.new_receiver())
 
     await sender.send(1)
 

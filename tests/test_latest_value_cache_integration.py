@@ -4,6 +4,7 @@
 """Tests for the LatestValueCache implementation."""
 
 import asyncio
+from contextlib import ExitStack
 
 import pytest
 
@@ -11,11 +12,11 @@ from frequenz.channels import Broadcast, LatestValueCache
 
 
 @pytest.mark.integration
-async def test_latest_value_cache() -> None:
+async def test_latest_value_cache(stack: ExitStack) -> None:
     """Ensure LatestValueCache always gives out the latest value."""
     channel = Broadcast[int](name="lvc_test")
 
-    cache = LatestValueCache(channel.new_receiver())
+    cache = LatestValueCache(stack.enter_context(channel.new_receiver()))
     sender = channel.new_sender()
 
     assert not cache.has_value()

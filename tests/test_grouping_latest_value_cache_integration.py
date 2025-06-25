@@ -4,6 +4,7 @@
 """Tests for the LatestValueCache implementation."""
 
 import asyncio
+from contextlib import ExitStack
 
 import pytest
 
@@ -12,12 +13,14 @@ from frequenz.channels.experimental import GroupingLatestValueCache
 
 
 @pytest.mark.integration
-async def test_latest_value_cache_key() -> None:  # pylint: disable=too-many-statements
+async def test_latest_value_cache_key(  # pylint: disable=too-many-statements
+    stack: ExitStack,
+) -> None:
     """Ensure LatestValueCache works with keys."""
     channel = Broadcast[tuple[int, str]](name="lvc_test")
 
     cache: GroupingLatestValueCache[int, tuple[int, str]] = GroupingLatestValueCache(
-        channel.new_receiver(), key=lambda x: x[0]
+        stack.enter_context(channel.new_receiver()), key=lambda x: x[0]
     )
     sender = channel.new_sender()
 
@@ -99,15 +102,15 @@ async def test_latest_value_cache_key() -> None:  # pylint: disable=too-many-sta
 
 
 @pytest.mark.integration
-async def test_equality() -> None:
+async def test_equality(stack: ExitStack) -> None:
     """Test that two caches with the same content are equal."""
     channel = Broadcast[tuple[int, str]](name="lvc_test")
 
     cache1: GroupingLatestValueCache[int, tuple[int, str]] = GroupingLatestValueCache(
-        channel.new_receiver(), key=lambda x: x[0]
+        stack.enter_context(channel.new_receiver()), key=lambda x: x[0]
     )
     cache2: GroupingLatestValueCache[int, tuple[int, str]] = GroupingLatestValueCache(
-        channel.new_receiver(), key=lambda x: x[0]
+        stack.enter_context(channel.new_receiver()), key=lambda x: x[0]
     )
 
     sender = channel.new_sender()
