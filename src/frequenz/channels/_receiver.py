@@ -167,7 +167,7 @@ called.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import TYPE_CHECKING, Any, Generic, Self, TypeGuard, TypeVar, overload
 
 from typing_extensions import override
@@ -182,11 +182,12 @@ FilteredMessageT_co = TypeVar("FilteredMessageT_co", covariant=True)
 """Type variable for the filtered message type."""
 
 
-class Receiver(ABC, Generic[ReceiverMessageT_co]):
+class Receiver(AsyncIterator[ReceiverMessageT_co], ABC):
     """An endpoint to receive messages."""
 
     # We need the noqa here because ReceiverError can be raised by ready() and consume()
     # implementations.
+    @override
     async def __anext__(self) -> ReceiverMessageT_co:  # noqa: DOC503
         """Await the next message in the async iteration over received messages.
 
