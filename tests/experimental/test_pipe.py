@@ -6,7 +6,7 @@
 
 import asyncio
 import typing
-from contextlib import AsyncExitStack, aclosing, closing
+from contextlib import AsyncExitStack, ExitStack, aclosing
 
 from frequenz.channels import Broadcast, Receiver
 from frequenz.channels.experimental import Pipe
@@ -66,7 +66,7 @@ async def test_pipe_with_async_exit_stack() -> None:
         source_channel = await stack.enter_async_context(
             aclosing(Broadcast[int](name="source channel"))
         )
-        source_receiver = stack.enter_context(closing(source_channel.new_receiver()))
+        source_receiver = stack.enter_context(source_channel.new_receiver())
 
         forwarding_channel = await stack.enter_async_context(
             aclosing(Broadcast[int](name="forwarding channel"))
@@ -75,7 +75,7 @@ async def test_pipe_with_async_exit_stack() -> None:
             Pipe(source_receiver, forwarding_channel.new_sender())
         )
 
-        receiver = stack.enter_context(closing(forwarding_channel.new_receiver()))
+        receiver = stack.enter_context(forwarding_channel.new_receiver())
 
         source_sender = source_channel.new_sender()
         await source_sender.send(10)

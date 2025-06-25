@@ -4,7 +4,6 @@
 """Tests for the NopReceiver."""
 
 import asyncio
-from contextlib import closing
 
 import pytest
 
@@ -16,7 +15,7 @@ from frequenz.channels.experimental import NopReceiver
 async def test_never_ready() -> None:
     """Test that the receiver is never ready."""
     # When it is not closed, `ready()` should never return.
-    with closing(NopReceiver[int]()) as receiver:
+    with NopReceiver[int]() as receiver:
         with pytest.raises(TimeoutError):
             await asyncio.wait_for(receiver.ready(), timeout=0.1)
 
@@ -29,7 +28,7 @@ async def test_never_ready() -> None:
 async def test_consuming_raises() -> None:
     """Test that consume raises an error."""
     # When it is not closed, `consume()` should raise a ReceiverError.
-    with closing(NopReceiver[int]()) as receiver:
+    with NopReceiver[int]() as receiver:
         with pytest.raises(ReceiverError):
             receiver.consume()
 
