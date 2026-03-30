@@ -16,7 +16,7 @@ from typing_extensions import deprecated, override
 from ._exceptions import ChannelClosedError
 from ._generic import ChannelMessageT
 from ._receiver import Receiver, ReceiverStoppedError
-from ._sender import ClonableSubscribableSender, SenderClosedError, SenderError
+from ._sender import CloneableSubscribableSender, SenderClosedError, SenderError
 
 _logger = logging.getLogger(__name__)
 
@@ -334,7 +334,7 @@ class Broadcast(  # pylint: disable=too-many-instance-attributes
 _T = TypeVar("_T")
 
 
-class BroadcastSender(ClonableSubscribableSender[_T]):
+class BroadcastSender(CloneableSubscribableSender[_T]):
     """A sender to send messages to the broadcast channel.
 
     Should not be created directly, but through the
@@ -420,8 +420,13 @@ class BroadcastSender(ClonableSubscribableSender[_T]):
 
     def __del__(self) -> None:
         """Clean up this sender."""
-        if not self._closed:
-            self._channel._sender_count -= 1
+        try:
+            if not self._closed:
+                self._channel._sender_count -= 1
+        # This apparantly can raise during interpreter shutdown, so we discard
+        # any exceptions in __del__.
+        except Exception:  # pylint: disable=broad-except
+            pass
 
     @override
     def clone(self) -> BroadcastSender[_T]:
