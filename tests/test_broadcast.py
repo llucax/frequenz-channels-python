@@ -10,6 +10,7 @@ from typing import TypeGuard, assert_never
 
 import pytest
 
+import gc
 from frequenz.channels import (
     Broadcast,
     BroadcastChannel,
@@ -473,3 +474,60 @@ async def test_broadcast_auto_close_2() -> None:
     with pytest.raises(ReceiverStoppedError) as excinfo:
         await receiver.receive()
     assert isinstance(excinfo.value.__cause__, ChannelClosedError)
+
+
+async def test_broadcast_auto_close_cannot_be_resurrected_by_new_subscription() -> None:
+    """Closing the last receiver should keep the channel closed."""
+    sender, receiver = BroadcastChannel[int](name="auto-close-test")
+
+    receiver.close()
+
+    with pytest.raises(SenderError) as excinfo:
+        await sender.send(1)
+    assert isinstance(excinfo.value.__cause__, ChannelClosedError)
+
+    late_receiver = sender.subscribe()
+
+    with pytest.raises(SenderError) as excinfo:
+        await sender.send(2)
+    assert isinstance(excinfo.value.__cause__, ChannelClosedError)
+
+    with pytest.raises(ReceiverStoppedError) as excinfo:
+        await asyncio.wait_for(late_receiver.receive(), timeout=0.1)
+    assert isinstance(excinfo.value.__cause__, ChannelClosedError)
+
+
+async def test_broadcast_failed_send_does_not_update_latest_message() -> None:
+    """A send that fails because the channel is closed should not mutate _latest."""
+    sender, receiver = BroadcastChannel[int](
+        name="auto-close-test",
+        resend_latest=True,
+    )
+
+    await sender.send(1)
+
+    await sender.aclose()
+
+    with pytest.raises(SenderError):
+        await sender.send(2)
+
+    assert await receiver.receive() == 1
+
+
+async def test_broadcast_receive_unblocks_when_last_sender_is_garbage_collected() -> None:
+    """A blocked receiver should stop promptly when the last sender disappears."""
+    sender, receiver = BroadcastChannel[int](name="auto-close-test")
+    sender_2 = sender.clone()
+
+    await sender.aclose()
+
+    receive_task = asyncio.create_task(receiver.receive())
+    await asyncio.sleep(0)
+
+    await sender_2.aclose()
+    del sender_2
+    gc.collect()
+
+    with pytest.raises(ReceiverStoppedError):
+        async with asyncio.timeout(1):
+            await receive_task
