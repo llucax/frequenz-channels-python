@@ -125,7 +125,7 @@ class Event(_base_classes.Receiver[None]):
         await self._event.wait()
         return not self._is_stopped
 
-    def consume(self) -> None:
+    def consume(self) -> None:  # noqa: DOC503
         """Consume the event.
 
         This makes this receiver wait again until the event is set again.

@@ -73,7 +73,7 @@ class Selected(Generic[_T]):
         """Flag to indicate if this selected has been handled in the if-chain."""
 
     @property
-    def value(self) -> _T:
+    def value(self) -> _T:  # noqa: DOC503
         """The value that was received, if any.
 
         Returns:
@@ -238,7 +238,7 @@ class SelectErrorGroup(BaseExceptionGroup[BaseException], SelectError):
 # https://github.com/python/mypy/issues/13597
 
 
-async def select(*receivers: Receiver[Any]) -> AsyncIterator[Selected[Any]]:
+async def select(*receivers: Receiver[Any]) -> AsyncIterator[Selected[Any]]:  # noqa: DOC503
     """Iterate over the values of all receivers as they receive new values.
 
     This function is used to iterate over the values of all receivers as they receive

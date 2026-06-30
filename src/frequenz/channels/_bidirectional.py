@@ -93,7 +93,6 @@ class Bidirectional(Generic[T, U]):
                 The next value that was received.
 
             Raises:
-                ReceiverStoppedError: if there is some problem with the receiver.
                 ReceiverError: if there is some problem with the receiver.
             """
             try:

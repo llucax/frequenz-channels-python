@@ -33,7 +33,7 @@ class Sender(ABC, Generic[T]):
 class Receiver(ABC, Generic[T]):
     """A channel Receiver."""
 
-    async def __anext__(self) -> T:
+    async def __anext__(self) -> T:  # noqa: DOC503
         """Await the next value in the async iteration over received values.
 
         Returns:
@@ -84,14 +84,14 @@ class Receiver(ABC, Generic[T]):
         """
         return self
 
-    async def receive(self) -> T:
+    async def receive(self) -> T:  # noqa: DOC503
         """Receive a message from the channel.
 
         Returns:
             The received message.
 
         Raises:
-            ReceiverStoppedError: if there is some problem with the receiver.
+            ReceiverStoppedError: if the receiver stopped producing messages.
             ReceiverError: if there is some problem with the receiver.
         """
         try:

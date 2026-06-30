@@ -235,7 +235,6 @@ class Receiver(BaseReceiver[T]):
 
         Raises:
             ReceiverStoppedError: if the receiver stopped producing messages.
-            ReceiverError: if there is some problem with the receiver.
         """
         if (  # pylint: disable=protected-access
             self._next is _Empty and self._chan._closed

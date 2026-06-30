@@ -108,7 +108,6 @@ class Merge(Receiver[T]):
 
         Raises:
             ReceiverStoppedError: if the receiver stopped producing messages.
-            ReceiverError: if there is some problem with the receiver.
         """
         if not self._results and not self._pending:
             raise ReceiverStoppedError(self)

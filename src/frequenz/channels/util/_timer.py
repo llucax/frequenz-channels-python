@@ -384,7 +384,7 @@ class Timer(Receiver[timedelta]):
         next tick to be relative to the time timer was last triggered.
     """
 
-    def __init__(
+    def __init__(  # noqa: DOC503
         self,
         interval: timedelta,
         missed_tick_policy: MissedTickPolicy,
@@ -627,7 +627,7 @@ class Timer(Receiver[timedelta]):
         """
         return not self._stopped
 
-    def reset(self, *, start_delay: timedelta = timedelta(0)) -> None:
+    def reset(self, *, start_delay: timedelta = timedelta(0)) -> None:  # noqa: DOC503
         """Reset the timer to start timing from now (plus an optional delay).
 
         If the timer was stopped, or not started yet, it will be started.
