@@ -145,18 +145,10 @@ class Bidirectional(Generic[T, U]):
 
     @property
     def client_handle(self) -> Bidirectional.Handle[T, U]:
-        """Get a `Handle` for the client side to use.
-
-        Returns:
-            Object to send/receive messages with.
-        """
+        """The [`Handle`][.Handle] for the client side to use."""
         return self._client_handle
 
     @property
     def service_handle(self) -> Bidirectional.Handle[U, T]:
-        """Get a `Handle` for the service side to use.
-
-        Returns:
-            Object to send/receive messages with.
-        """
+        """The [`Handle`][.Handle] for the service side to use."""
         return self._service_handle

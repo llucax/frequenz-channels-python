@@ -77,11 +77,7 @@ class Receiver(ABC, Generic[T]):
         """
 
     def __aiter__(self) -> Receiver[T]:
-        """Initialize the async iterator over received values.
-
-        Returns:
-            `self`, since no extra setup is needed for the iterator.
-        """
+        """Return `self`, since no extra setup is needed for the iterator."""
         return self
 
     async def receive(self) -> T:  # noqa: DOC503

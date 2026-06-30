@@ -112,22 +112,14 @@ class Selected(Generic[_T]):
         return isinstance(self._exception, ReceiverStoppedError)
 
     def __str__(self) -> str:
-        """Return a string representation of this instance.
-
-        Returns:
-            A string representation of this instance.
-        """
+        """Return a string representation of this instance."""
         return (
             f"{type(self).__name__}({self._recv}) -> "
             f"{self._exception or self._value})"
         )
 
     def __repr__(self) -> str:
-        """Return a the internal representation of this instance.
-
-        Returns:
-            A string representation of this instance.
-        """
+        """Return the internal representation of this instance."""
         return (
             f"{type(self).__name__}({self._recv=}, {self._value=}, "
             f"{self._exception=}, {self._handled=})"

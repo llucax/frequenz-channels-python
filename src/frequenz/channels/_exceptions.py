@@ -20,7 +20,7 @@ class Error(RuntimeError):
     """
 
     def __init__(self, message: Any):
-        """Create a ChannelError instance.
+        """Create an instance.
 
         Args:
             message: An error message.
