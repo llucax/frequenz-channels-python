@@ -105,12 +105,14 @@ plugins:
             docstring_section_style: spacy
             inherited_members: true
             merge_init_into_class: false
+            relative_crossrefs: true
             separate_signature: true
             show_category_heading: true
             show_root_heading: true
             show_root_members_full_path: true
             show_signature_annotations: true
             show_source: true
+            show_symbol_type_toc: true
             signature_crossrefs: true
           import:
             # See https://mkdocstrings.github.io/python/usage/#import for details

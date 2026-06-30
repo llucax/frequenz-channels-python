@@ -107,11 +107,15 @@ extend-ignore = [
 ]
 # pydoclint options
 style = "google"
-check-return-types = false
-check-yield-types = false
 arg-type-hints-in-docstring = false
 arg-type-hints-in-signature = true
 allow-init-docstring = true
+check-class-attributes = true
+check-return-types = false
+check-style-mismatch = true
+check-yield-types = false
+require-inline-class-var-docs = true
+skip-checking-short-docstrings = true
 
 [tool.pylint.similarities]
 ignore-comments = ['yes']
